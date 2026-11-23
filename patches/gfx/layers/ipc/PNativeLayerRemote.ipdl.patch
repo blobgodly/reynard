@@ -1,0 +1,57 @@
+diff --git a/gfx/layers/ipc/PNativeLayerRemote.ipdl b/gfx/layers/ipc/PNativeLayerRemote.ipdl
+index 79f9c40903a2..2729d48800a2 100644
+--- a/gfx/layers/ipc/PNativeLayerRemote.ipdl
++++ b/gfx/layers/ipc/PNativeLayerRemote.ipdl
+@@ -3,6 +3,7 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ include "mozilla/GfxMessageUtils.h";
++include "mozilla/ipc/ByteBufUtils.h";
+ 
+ using struct mozilla::gfx::DeviceColor from "mozilla/gfx/2D.h";
+ using mozilla::gfx::SamplingFilter from "mozilla/gfx/2D.h";
+@@ -11,6 +12,7 @@ using mozilla::gfx::IntRect from "mozilla/gfx/Point.h";
+ using mozilla::gfx::RoundedRect from "mozilla/gfx/Point.h";
+ using mozilla::gfx::IntSize from "mozilla/gfx/Point.h";
+ using mozilla::gfx::Matrix4x4 from "mozilla/gfx/Matrix.h";
++using base::ProcessId from "base/process.h";
+ [MoveOnly] using mozilla::layers::IOSurfacePort from "mozilla/layers/IOSurfacePort.h";
+ 
+ namespace mozilla {
+@@ -24,6 +26,7 @@ union NativeLayerCommand {
+   CommandSetLayers;
+   CommandLayerInfo;
+   CommandChangedSurface;
++  CommandOnscreenCommitData;
+ };
+ 
+ union SurfaceTransfer {
+@@ -77,6 +80,10 @@ struct CommandChangedSurface {
+   IntSize Size;
+ };
+ 
++struct CommandOnscreenCommitData {
++  ByteBuf Data;
++};
++
+ // This protocol allows a NativeLayerRoot implementation on the GPU
+ // to send layer commands to the parent process. It also allows the
+ // GPU to request readback, which the parent will send as a Shmem.
+@@ -92,6 +99,17 @@ parent:
+   // Used for synchronous widget-initiated paints, most importantly
+   // during window resize or when a new window is opened.
+   sync Flush();
++
++  // A new frame of the video requested by StartVideoFrames.
++  async VideoFrame(IOSurfacePort surface);
++
++child:
++  // Sends the frames of a video to the parent for the iOS native video
++  // player, also while the page doesn't show the video. handle finds the
++  // video's frames among those the content process pid sends to the
++  // compositor.
++  async StartVideoFrames(ProcessId pid, uint64_t handle);
++  async StopVideoFrames();
+ };
+ 
+ } // layers

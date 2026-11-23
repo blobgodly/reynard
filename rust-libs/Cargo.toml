@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "reynard-adblock",
+    "reynard-dns",
+    "reynard-download",
+    "reynard-media",
+    "reynard-cache",
+    "reynard-ffi",
+]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

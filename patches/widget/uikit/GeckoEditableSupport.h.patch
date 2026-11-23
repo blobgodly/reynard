@@ -1,0 +1,137 @@
+diff --git a/widget/uikit/GeckoEditableSupport.h b/widget/uikit/GeckoEditableSupport.h
+new file mode 100644
+index 000000000000..7e9570ac136e
+--- /dev/null
++++ b/widget/uikit/GeckoEditableSupport.h
+@@ -0,0 +1,131 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++/* This source code is introduced during the work of an iOS 13+ browser
++ * https://github.com/minh-ton/reynard-browser in Feb 2026. */
++
++#ifndef mozilla_widget_GeckoEditableSupport_h
++#define mozilla_widget_GeckoEditableSupport_h
++
++#import <UIKit/UIKit.h>
++
++#include <cmath>
++
++#include "Units.h"
++#include "nsCOMPtr.h"
++#include "nsIGeckoViewBridge.h"
++
++// MARK: - UITextInput Model Objects
++
++@interface ChildViewTextPosition : UITextPosition <NSCopying>
++@property(nonatomic, assign) NSUInteger offset;
++@property(nonatomic, assign) UITextStorageDirection affinity;
+++ (instancetype)positionWithOffset:(NSUInteger)offset;
+++ (instancetype)positionWithOffset:(NSUInteger)offset
++                          affinity:(UITextStorageDirection)affinity;
++@end
++
++@interface ChildViewTextRange : UITextRange <NSCopying>
++@property(nonatomic, retain) ChildViewTextPosition* startPosition;
++@property(nonatomic, retain) ChildViewTextPosition* endPosition;
+++ (instancetype)rangeWithStart:(ChildViewTextPosition*)aStart
++                           end:(ChildViewTextPosition*)aEnd;
++@end
++
++@interface ChildViewTextSelectionRect : UITextSelectionRect
++@property(nonatomic, assign) CGRect rectValue;
++@property(nonatomic, assign) CGAffineTransform transformValue;
++@property(nonatomic, assign) NSWritingDirection writingDirectionValue;
++@property(nonatomic, assign) BOOL containsStartValue;
++@property(nonatomic, assign) BOOL containsEndValue;
++@property(nonatomic, assign) BOOL verticalValue;
+++ (instancetype)selectionRectWithRect:(CGRect)aRect
++                        containsStart:(BOOL)aContainsStart
++                          containsEnd:(BOOL)aContainsEnd;
++@end
++
++// MARK: - Editable State
++
++struct GeckoEditableState {
++  UITextInputStringTokenizer* mTokenizer;
++  NSUndoManager* mUndoManager;
++  id mTextInputTraits;
++  BOOL mSeenHardwareKeyDownInNonEditableContent;
++  NSHashTable<id<UITextInputDelegate>>* mTextInputDelegates;
++  NSDictionary* mAutofillField;
++  nsCOMPtr<nsIGeckoViewEventListener> mAutofillListener;
++  NSDictionary* mMarkedTextStyle;
++  NSMutableAttributedString* mTextAnnotations;
++  UITextInteraction* mEditableTextInteraction;
++  UITextInteraction* mReadOnlyTextInteraction;
++  id mTextInteractionAssistantDelegate;
++  BOOL mShowingTextStyleOptions;
++  BOOL mPendingCaretMenu;
++  NSTimer* mTextAutoscrollTimer;
++  CGPoint mTextAutoscrollPoint;
++  CGPoint mFloatingCursorPoint;
++  BOOL mFloatingCursorActive;
++
++  UIDragInteraction* mTextDragInteraction;
++  UIDropInteraction* mTextDropInteraction;
++  id<UIDragSession> mTextDragSession;
++  id<UIDropSession> mTextDropSession;
++  NSArray<UIDragItem*>* mTextDragItems;
++  UIView* mTextDragPreview;
++  BOOL mLoadingTextDrop;
++
++  BOOL mPendingSelectionGeometryRefresh;
++  BOOL mPendingKeyboardContextUpdate;
++  BOOL mSelectionActivated;
++  BOOL mAsyncScrollInProgress;
++  BOOL mPreparingBackwardDeletionSelection;
++  id mSelectionHandleSuppressionAssertion;
++  UITextStorageDirection mSelectionAffinity;
++};
++
++// MARK: - Coordinate Conversion Utilities
++
++inline mozilla::LayoutDeviceIntPoint UIKitPointsToDevPixels(
++    CGPoint aPoint, CGFloat aBackingScale) {
++  return mozilla::LayoutDeviceIntPoint(
++      static_cast<int32_t>(std::lround(aPoint.x * aBackingScale)),
++      static_cast<int32_t>(std::lround(aPoint.y * aBackingScale)));
++}
++
++inline CGRect DevPixelsToUIKitPoints(const mozilla::LayoutDeviceRect& aRect,
++                                     CGFloat aBackingScale) {
++  return CGRectMake((CGFloat)aRect.x / aBackingScale,
++                    (CGFloat)aRect.y / aBackingScale,
++                    (CGFloat)aRect.width / aBackingScale,
++                    (CGFloat)aRect.height / aBackingScale);
++}
++
++inline CGRect DevPixelsToUIKitPoints(const mozilla::LayoutDeviceIntRect& aRect,
++                                     CGFloat aBackingScale) {
++  return DevPixelsToUIKitPoints(
++      mozilla::LayoutDeviceRect(aRect.x, aRect.y, aRect.width, aRect.height),
++      aBackingScale);
++}
++
++// MARK: - Geometry Utilities
++
++inline bool ClipCGRectToBounds(CGRect& aRect, const CGRect& aBounds) {
++  if (CGRectIsNull(aRect) || CGRectIsEmpty(aRect) || CGRectIsNull(aBounds) ||
++      CGRectIsEmpty(aBounds)) {
++    aRect = CGRectZero;
++    return false;
++  }
++
++  CGRect clippedRect =
++      CGRectIntersection(CGRectStandardize(aRect), CGRectStandardize(aBounds));
++  if (CGRectIsNull(clippedRect) || CGRectIsEmpty(clippedRect)) {
++    aRect = CGRectZero;
++    return false;
++  }
++
++  aRect = clippedRect;
++  return true;
++}
++
++#endif  // mozilla_widget_GeckoEditableSupport_h

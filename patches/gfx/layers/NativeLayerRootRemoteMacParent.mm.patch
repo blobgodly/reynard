@@ -1,0 +1,124 @@
+diff --git a/gfx/layers/NativeLayerRootRemoteMacParent.mm b/gfx/layers/NativeLayerRootRemoteMacParent.mm
+index 7a4614038e1d..31992358c506 100644
+--- a/gfx/layers/NativeLayerRootRemoteMacParent.mm
++++ b/gfx/layers/NativeLayerRootRemoteMacParent.mm
+@@ -15,9 +15,34 @@
+   MOZ_ASSERT(mRealNativeLayerRoot);
+ }
+ 
++void NativeLayerRootRemoteMacParent::Shutdown() {
++  // Clear the remote layer state and release the root before the
++  // UIKit view backing it is torn down.
++  if (mRealNativeLayerRoot) {
++    mRealNativeLayerRoot->SetLayers({});
++  }
++
++#ifdef MOZ_WIDGET_UIKIT
++  mVideoFrameCallback = nullptr;
++#endif
++
++  mSnapshotter = nullptr;
++  mKnownLayers.Clear();
++  mRealNativeLayerRoot = nullptr;
++}
++
+ mozilla::ipc::IPCResult
+ NativeLayerRootRemoteMacParent::RecvCommitNativeLayerCommands(
+     nsTArray<NativeLayerCommand>&& aCommands) {
++  if (!mRealNativeLayerRoot) {
++    return IPC_OK();
++  }
++
++#ifdef MOZ_WIDGET_UIKIT
++  ReleasableMutexAutoLock layerUpdateLock(
++      mRealNativeLayerRoot->LayerUpdateMutex());
++#endif
++
+   for (auto& command : aCommands) {
+     switch (command.type()) {
+       case NativeLayerCommand::TCommandCreateLayer: {
+@@ -77,6 +102,15 @@
+         break;
+       }
+ 
++      case NativeLayerCommand::TCommandOnscreenCommitData: {
++#ifdef MOZ_WIDGET_UIKIT
++        auto& commitData = command.get_CommandOnscreenCommitData();
++        mRealNativeLayerRoot->SetOnscreenCommitData(
++            std::move(commitData.Data()));
++#endif
++        break;
++      }
++
+       default: {
+         gfxWarning() << "Unknown NativeLayerCommand.";
+         break;
+@@ -84,6 +118,9 @@
+     }
+   }
+ 
++#ifdef MOZ_WIDGET_UIKIT
++  layerUpdateLock.Unlock();
++#endif
+   mRealNativeLayerRoot->CommitToScreen();
+ 
+   return IPC_OK();
+@@ -91,6 +128,10 @@
+ 
+ mozilla::ipc::IPCResult NativeLayerRootRemoteMacParent::RecvRequestReadback(
+     IntSize aSize, Shmem* const aPixels) {
++  if (!mRealNativeLayerRoot) {
++    return IPC_FAIL(this, "Native layer root has been shut down.");
++  }
++
+   if (!xpc::IsInAutomation()) {
+     return IPC_FAIL(this, "Should only be called from automation.");
+   }
+@@ -132,6 +173,35 @@
+   return IPC_OK();
+ }
+ 
++mozilla::ipc::IPCResult NativeLayerRootRemoteMacParent::RecvVideoFrame(
++    IOSurfacePort&& aSurface) {
++#ifdef MOZ_WIDGET_UIKIT
++  CFTypeRefPtr<IOSurfaceRef> surface = aSurface.GetSurface();
++  if (mVideoFrameCallback && surface) {
++    mVideoFrameCallback(surface);
++  }
++#endif
++  return IPC_OK();
++}
++
++#ifdef MOZ_WIDGET_UIKIT
++void NativeLayerRootRemoteMacParent::StartVideoFrames(
++    base::ProcessId aPid, uint64_t aHandle,
++    std::function<void(CFTypeRefPtr<IOSurfaceRef>)>&& aCallback) {
++  mVideoFrameCallback = std::move(aCallback);
++  if (CanSend()) {
++    (void)SendStartVideoFrames(aPid, aHandle);
++  }
++}
++
++void NativeLayerRootRemoteMacParent::StopVideoFrames() {
++  mVideoFrameCallback = nullptr;
++  if (CanSend()) {
++    (void)SendStopVideoFrames();
++  }
++}
++#endif
++
+ void NativeLayerRootRemoteMacParent::HandleCreateLayer(uint64_t aID,
+                                                        IntSize aSize,
+                                                        bool aOpaque) {
+@@ -154,6 +224,11 @@
+ }
+ 
+ void NativeLayerRootRemoteMacParent::HandleLayerDestroyed(uint64_t aID) {
++#ifdef XP_IOS
++  if (auto entry = mKnownLayers.MaybeGet(aID)) {
++    mRealNativeLayerRoot->RetainLayerUntilNextScreenCommit(*entry);
++  }
++#endif
+   mKnownLayers.Remove(aID);
+ }
+ 

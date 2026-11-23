@@ -1,0 +1,24 @@
+diff --git a/layout/generic/ScrollContainerFrame.cpp b/layout/generic/ScrollContainerFrame.cpp
+index ce5c07b18b91..fb74ccbfb6c0 100644
+--- a/layout/generic/ScrollContainerFrame.cpp
++++ b/layout/generic/ScrollContainerFrame.cpp
+@@ -3381,6 +3381,9 @@ void ScrollContainerFrame::ScrollToImpl(
+   }
+ 
+   if (nsCOMPtr<nsIDocShell> docShell = presContext->GetDocShell()) {
++#ifdef MOZ_WIDGET_UIKIT
++    NotifyNativeTextInputPositionChanged(*presContext->Document());
++#endif
+     docShell->NotifyScrollObservers();
+   }
+ }
+@@ -6284,7 +6287,8 @@ class MOZ_RAII ScrollContainerFrame::AutoMinimumScaleSizeChangeDetector final {
+ nsSize ScrollContainerFrame::TrueOuterSize(
+     nsDisplayListBuilder* aBuilder) const {
+   if (!PresShell()->UsesMobileViewportSizing()) {
+-    return GetSize();
++    return nsLayoutUtils::ExpandHeightForDynamicToolbar(PresContext(),
++                                                        GetSize());
+   }
+ 
+   RefPtr<MobileViewportManager> manager =

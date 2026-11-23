@@ -1,0 +1,15 @@
+[package]
+name = "reynard-ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+reynard-dns = { path = "../reynard-dns" }
+reynard-adblock = { path = "../reynard-adblock" }
+reynard-download = { path = "../reynard-download" }
+reynard-media = { path = "../reynard-media" }
+reynard-cache = { path = "../reynard-cache" }
+serde_json = "1.0"
