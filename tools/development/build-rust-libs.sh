@@ -28,6 +28,7 @@ else
     export RUSTFLAGS="-C link-arg=${DEPLOYMENT_FLAG}"
 fi
 export TARGET_DIR
+export CARGO_TARGET_DIR="$TARGET_DIR"
 
 echo "==> Building reynard-ffi for $RUST_TARGET (Release)..."
 mkdir -p "$OUTPUT_DIR"

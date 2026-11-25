@@ -1,11 +1,39 @@
 name: Build Reynard
 
 on:
+  workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: Git ref to build (defaults to current branch)
+        required: false
+        default: ''
+        type: string
+      nightly:
+        description: Build nightly version
+        required: false
+        default: false
+        type: boolean
+      build_normal_ipa:
+        description: Build normal IPA
+        required: false
+        default: true
+        type: boolean
+      build_trollstore_tipa:
+        description: Build TrollStore TIPA
+        required: false
+        default: true
+        type: boolean
+      build_jailbroken_ipa:
+        description: Build Jailbroken IPA
+        required: false
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       checkout_ref:
         description: Git ref to build
-        required: true
+        required: false
+        default: ''
         type: string
       nightly:
         description: Build nightly version
@@ -33,7 +61,6 @@ permissions:
 
 jobs:
   prepare:
-    if: ${{ github.repository_owner == 'minh-ton' }}
     name: Select build variants
     runs-on: ubuntu-latest
     outputs:
@@ -91,7 +118,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.checkout_ref }}
+          ref: ${{ inputs.checkout_ref || github.ref }}
           fetch-depth: 0
           submodules: false
 
